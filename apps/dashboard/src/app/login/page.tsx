@@ -19,6 +19,11 @@ export default function LoginPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Inlined at build time — false means the Vercel env vars are missing.
+  const isConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -66,6 +71,17 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {!isConfigured && (
+            <Alert variant="destructive" className="mb-4">
+              <TriangleAlert className="h-4 w-4" />
+              <AlertDescription>
+                Supabase ist nicht konfiguriert. Bitte in Vercel die Environment-Variablen{' '}
+                <code className="font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> und{' '}
+                <code className="font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> setzen und
+                neu deployen (siehe DEPLOYMENT.md).
+              </AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-Mail</Label>
@@ -103,7 +119,7 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !isConfigured}>
               {loading ? 'Bitte warten…' : mode === 'login' ? 'Anmelden' : 'Registrieren'}
             </Button>
           </form>
