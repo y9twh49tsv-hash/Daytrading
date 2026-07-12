@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark trading-dashboard theme */
+@layer base {
+  :root {
+    --background: 224 24% 6%;
+    --foreground: 220 14% 92%;
+    --card: 224 22% 9%;
+    --card-foreground: 220 14% 92%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 224 24% 6%;
+    --secondary: 222 18% 16%;
+    --secondary-foreground: 220 14% 92%;
+    --muted: 222 18% 14%;
+    --muted-foreground: 220 10% 60%;
+    --accent: 222 18% 16%;
+    --accent-foreground: 220 14% 92%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 16% 18%;
+    --input: 222 16% 22%;
+    --ring: 199 89% 48%;
+    --profit: 152 76% 46%;
+    --loss: 0 84% 60%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1,
+      'tnum' 1;
+  }
+}

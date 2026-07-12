@@ -1,0 +1,14 @@
+# Local development: runs the worker against your Supabase project.
+# The dashboard runs best via `pnpm --filter @daytrading/dashboard dev`.
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    env_file:
+      - apps/worker/.env
+    environment:
+      PORT: 8080
+    ports:
+      - '8080:8080'
+    restart: unless-stopped
