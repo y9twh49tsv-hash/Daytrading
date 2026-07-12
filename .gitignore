@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment — secrets must NEVER be committed
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Test coverage
+coverage/
+
+# Vercel
+.vercel/
+
+# Turbo / caches
+.turbo/
+.eslintcache
