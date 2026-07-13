@@ -9,7 +9,7 @@ import { Logger } from './logger.js';
 import { Db } from './db.js';
 import { BinanceRest } from './binance/rest.js';
 import { PaperBroker } from './broker/paperBroker.js';
-import { BinanceTestnetBroker } from './broker/binanceTestnetBroker.js';
+import { BinanceSpotBroker } from './broker/binanceTestnetBroker.js';
 import type { Broker } from './broker/types.js';
 import { createStrategy } from './strategy/registry.js';
 import { BotEngine } from './engine/botEngine.js';
@@ -24,6 +24,7 @@ const engines = new Map<string, BotEngine>();
 let shuttingDown = false;
 let lastHeartbeatAt: string | null = null;
 
+/** Shared REST client for testnet market data (also used by paper bots). */
 const marketData = new BinanceRest({
   baseUrl: config.BINANCE_BASE_URL,
   apiKey: config.BINANCE_API_KEY,
@@ -31,26 +32,78 @@ const marketData = new BinanceRest({
   logger: log,
 });
 
-function createBroker(bot: BotInstance): Broker {
-  // KILL_SWITCH or PAPER_TRADING force the simulated broker regardless of mode
+/** Latest prices per symbol so the paper broker can fill orders. */
+const latestPrices = new Map<string, number>();
+
+interface BotRuntime {
+  broker: Broker;
+  /** REST client for this bot's market (testnet or live). */
+  rest: BinanceRest;
+  /** WS base URL matching this bot's market. */
+  wsBaseUrl: string;
+}
+
+/**
+ * Build the broker + market-data endpoints for a bot based on its mode.
+ *
+ * - paper: fully simulated; testnet market data feeds the fills.
+ * - testnet: signed orders against the Binance Spot Testnet (no real funds).
+ * - live: signed orders against Binance mainnet with REAL funds. Gated behind
+ *   ALLOW_LIVE_TRADING=true, PAPER_TRADING=false and KILL_SWITCH=false, and
+ *   requires dedicated BINANCE_LIVE_API_KEY / BINANCE_LIVE_API_SECRET.
+ */
+function createRuntime(bot: BotInstance): BotRuntime {
+  // KILL_SWITCH or PAPER_TRADING force the simulated broker regardless of mode.
   if (bot.mode === 'paper' || config.PAPER_TRADING || config.KILL_SWITCH) {
-    return new PaperBroker({
-      initialQuoteBalance: 10_000,
-      getMarketPrice: (symbol) => latestPrices.get(symbol) ?? 0,
-    });
+    return {
+      broker: new PaperBroker({
+        initialQuoteBalance: 10_000,
+        getMarketPrice: (symbol) => latestPrices.get(symbol) ?? 0,
+      }),
+      rest: marketData,
+      wsBaseUrl: config.BINANCE_WS_URL,
+    };
   }
+
   if (bot.mode === 'testnet') {
     if (!config.BINANCE_API_KEY || !config.BINANCE_API_SECRET) {
       throw new Error('Testnet mode requires BINANCE_API_KEY and BINANCE_API_SECRET');
     }
-    return new BinanceTestnetBroker(marketData, log);
+    return {
+      broker: new BinanceSpotBroker(marketData, log, 'testnet'),
+      rest: marketData,
+      wsBaseUrl: config.BINANCE_WS_URL,
+    };
   }
-  // 'live' is rejected at DB level and here as defense in depth
-  throw new Error(`Unsupported mode: ${bot.mode}. Live trading is not available in this release.`);
-}
 
-/** Latest prices per symbol so the paper broker can fill orders. */
-const latestPrices = new Map<string, number>();
+  if (bot.mode === 'live') {
+    if (!config.ALLOW_LIVE_TRADING) {
+      throw new Error(
+        'Live trading is disabled. Set ALLOW_LIVE_TRADING=true (and PAPER_TRADING=false) to enable real-money trading.',
+      );
+    }
+    if (config.PAPER_TRADING) {
+      throw new Error('Live trading requires PAPER_TRADING=false.');
+    }
+    if (!config.BINANCE_LIVE_API_KEY || !config.BINANCE_LIVE_API_SECRET) {
+      throw new Error('Live mode requires BINANCE_LIVE_API_KEY and BINANCE_LIVE_API_SECRET');
+    }
+    // Dedicated live REST client on the mainnet endpoint.
+    const liveRest = new BinanceRest({
+      baseUrl: config.BINANCE_LIVE_BASE_URL,
+      apiKey: config.BINANCE_LIVE_API_KEY,
+      apiSecret: config.BINANCE_LIVE_API_SECRET,
+      logger: log,
+    });
+    return {
+      broker: new BinanceSpotBroker(liveRest, log, 'live'),
+      rest: liveRest,
+      wsBaseUrl: config.BINANCE_LIVE_WS_URL,
+    };
+  }
+
+  throw new Error(`Unsupported mode: ${bot.mode}`);
+}
 
 async function getBot(botId: string): Promise<BotInstance> {
   const bots = await db.listBots();
@@ -74,17 +127,29 @@ async function startBot(botId: string): Promise<void> {
   const settings = await db.getBotSettings(botId);
   if (!settings) throw new Error(`Bot ${botId} has no bot_settings row`);
 
-  const broker = createBroker(bot);
-  await broker.init();
+  const runtime = createRuntime(bot);
+  await runtime.broker.init();
   const strategy = createStrategy(bot.strategy);
+
+  if (runtime.broker.kind === 'live') {
+    log.warn('LIVE trading bot starting — REAL funds at risk', { botId, symbol: bot.symbol });
+    await db.logEvent(
+      botId,
+      'critical',
+      'live_trading_active',
+      'LIVE trading is active for this bot — real money is at risk',
+      { symbol: bot.symbol },
+    );
+  }
 
   const engine = new BotEngine(bot, settings, {
     db,
-    rest: marketData,
-    broker,
+    rest: runtime.rest,
+    broker: runtime.broker,
     strategy,
     log,
     config,
+    wsBaseUrl: runtime.wsBaseUrl,
     onPrice: (symbol, price) => latestPrices.set(symbol, price),
   });
 

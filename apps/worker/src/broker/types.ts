@@ -5,7 +5,7 @@ import type { BrokerOrderRequest, BrokerOrderResult } from '@daytrading/shared';
  * the engine cannot tell the difference.
  */
 export interface Broker {
-  readonly kind: 'paper' | 'testnet';
+  readonly kind: 'paper' | 'testnet' | 'live';
   /** Prepare the broker (load balances etc.). */
   init(): Promise<void>;
   /** Free quote-asset balance (e.g. USDT). */

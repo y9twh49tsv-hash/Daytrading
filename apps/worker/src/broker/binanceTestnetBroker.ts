@@ -4,21 +4,28 @@ import { BinanceNetworkError, type BinanceRest } from '../binance/rest.js';
 import type { Logger } from '../logger.js';
 
 /**
- * Broker backed by the official Binance Spot Testnet REST API.
+ * Broker backed by the official Binance Spot REST API. The same implementation
+ * serves the Testnet and the Live (mainnet) exchange — the difference is only
+ * the base URL of the injected `rest` client and the `kind` flag. Live trading
+ * uses REAL funds; the risk layer (stop-loss, daily loss limit, kill switch,
+ * emergency stop) still applies.
  *
  * Order creation is never blindly retried: after a network error the broker
  * queries the real order status by clientOrderId. Only if the order verifiably
  * never reached the exchange does the error propagate (the engine may then
  * decide to place a new order with a NEW clientOrderId).
  */
-export class BinanceTestnetBroker implements Broker {
-  readonly kind = 'testnet' as const;
+export class BinanceSpotBroker implements Broker {
+  readonly kind: 'testnet' | 'live';
   private connected = false;
 
   constructor(
     private readonly rest: BinanceRest,
     private readonly log: Logger,
-  ) {}
+    kind: 'testnet' | 'live' = 'testnet',
+  ) {
+    this.kind = kind;
+  }
 
   async init(): Promise<void> {
     await this.rest.syncServerTime();

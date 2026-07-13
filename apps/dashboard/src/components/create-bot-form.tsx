@@ -38,9 +38,7 @@ export function CreateBotForm() {
         <Select id="mode" name="mode" defaultValue="paper">
           <option value="paper">Paper-Trading (empfohlen)</option>
           <option value="testnet">Binance Spot Testnet</option>
-          <option value="live" disabled>
-            Live — noch nicht verfügbar
-          </option>
+          <option value="live">Live — ECHTES GELD</option>
         </Select>
       </div>
       <div className="flex items-end">
@@ -48,6 +46,16 @@ export function CreateBotForm() {
           {pending ? 'Erstelle…' : 'Bot anlegen'}
         </Button>
       </div>
+      <Alert variant="warning" className="sm:col-span-2 lg:col-span-4">
+        <AlertDescription>
+          Im <strong>Live-Modus</strong> wird mit echtem Geld gehandelt. Der Worker führt
+          Live-Trades nur aus, wenn dort{' '}
+          <span className="font-mono text-xs">ALLOW_LIVE_TRADING=true</span> und{' '}
+          <span className="font-mono text-xs">PAPER_TRADING=false</span> gesetzt sind sowie echte
+          Binance-Keys hinterlegt wurden. Es gibt keine Gewinngarantie — du kannst dein Kapital
+          verlieren.
+        </AlertDescription>
+      </Alert>
       {error && (
         <Alert variant="destructive" className="sm:col-span-2 lg:col-span-4">
           <AlertDescription>{error}</AlertDescription>

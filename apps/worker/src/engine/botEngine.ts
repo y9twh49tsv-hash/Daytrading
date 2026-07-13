@@ -36,6 +36,8 @@ export interface BotEngineDeps {
   strategy: Strategy;
   log: Logger;
   config: WorkerConfig;
+  /** WebSocket base URL matching this bot's market (testnet or live). */
+  wsBaseUrl: string;
   /** Called on every price update (used to feed the paper broker). */
   onPrice?: (symbol: string, price: number) => void;
 }
@@ -119,7 +121,7 @@ export class BotEngine {
 
     // 5. Market data stream
     this.stream = new KlineStream({
-      wsBaseUrl: this.deps.config.BINANCE_WS_URL,
+      wsBaseUrl: this.deps.wsBaseUrl,
       symbol: this.bot.symbol,
       interval: this.settings.timeframe,
       logger: log,
@@ -630,7 +632,7 @@ export class BotEngine {
         const actual = await broker.getOrderByClientId(order.symbol, order.client_order_id);
         if (!actual) {
           // Order never reached the exchange → mark failed
-          if (order.status === 'pending' && broker.kind === 'testnet') {
+          if (order.status === 'pending' && broker.kind !== 'paper') {
             await db.updateOrderByClientId(order.client_order_id, { status: 'failed' });
             await db.logEvent(
               this.bot.id,
