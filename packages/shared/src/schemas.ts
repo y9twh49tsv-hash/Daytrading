@@ -25,8 +25,9 @@ export const symbolSchema = z
 export const createBotSchema = z.object({
   name: z.string().min(1).max(60),
   symbol: symbolSchema,
-  // 'live' is intentionally rejected in this release
-  mode: z.enum(['paper', 'testnet']),
+  // Live trading uses REAL funds and must be enabled in the worker via
+  // ALLOW_LIVE_TRADING; the risk controls still apply.
+  mode: z.enum(['paper', 'testnet', 'live']),
   strategy: strategyNameSchema.default('ema_rsi'),
 });
 
