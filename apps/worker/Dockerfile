@@ -12,7 +12,9 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/worker apps/worker
 RUN pnpm --filter @daytrading/shared build && pnpm --filter @daytrading/worker build
-RUN pnpm --filter @daytrading/worker --prod deploy /prod/worker
+# --legacy: pnpm v10 otherwise refuses to deploy workspaces without
+# inject-workspace-packages=true (ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE)
+RUN pnpm --filter @daytrading/worker --prod --legacy deploy /prod/worker
 
 FROM base AS runtime
 ENV NODE_ENV=production
