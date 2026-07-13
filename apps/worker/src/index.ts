@@ -1,3 +1,7 @@
+// Load a local .env file when present (used for on-prem / home deployments).
+// On managed hosts (Railway etc.) the variables come from the environment and
+// the missing file is simply ignored.
+import 'dotenv/config';
 import {
   COMMAND_POLL_INTERVAL_MS,
   RECONCILE_INTERVAL_MS,
